@@ -1,0 +1,70 @@
+nohup: ignoring input
+Server running on http://localhost:3000
+PrismaClientKnownRequestError: 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Inconsistent column data: Malformed ObjectID: invalid character 'm' was found at index 0 in the provided hex string: "me".
+    at ei.handleRequestError (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:7268)
+    at ei.handleAndLogRequestError (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:6593)
+    at ei.request (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:6300)
+    at async a (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:130:9551)
+    at async file:///C:/Projetos/fullstack-project/server.js:120:16 {
+  code: 'P2023',
+  meta: {
+    modelName: 'User',
+    message: `Malformed ObjectID: invalid character 'm' was found at index 0 in the provided hex string: "me".`
+  },
+  clientVersion: '6.19.0'
+}
+PrismaClientKnownRequestError: 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Inconsistent column data: Malformed ObjectID: invalid character 'm' was found at index 0 in the provided hex string: "me".
+    at ei.handleRequestError (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:7268)
+    at ei.handleAndLogRequestError (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:6593)
+    at ei.request (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:6300)
+    at async a (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:130:9551)
+    at async file:///C:/Projetos/fullstack-project/server.js:120:16 {
+  code: 'P2023',
+  meta: {
+    modelName: 'User',
+    message: `Malformed ObjectID: invalid character 'm' was found at index 0 in the provided hex string: "me".`
+  },
+  clientVersion: '6.19.0'
+}
+PrismaClientKnownRequestError: 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Inconsistent column data: Malformed ObjectID: invalid character 'm' was found at index 0 in the provided hex string: "me".
+    at ei.handleRequestError (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:7268)
+    at ei.handleAndLogRequestError (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:6593)
+    at ei.request (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:6300)
+    at async a (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:130:9551)
+    at async file:///C:/Projetos/fullstack-project/server.js:120:16 {
+  code: 'P2023',
+  meta: {
+    modelName: 'User',
+    message: `Malformed ObjectID: invalid character 'm' was found at index 0 in the provided hex string: "me".`
+  },
+  clientVersion: '6.19.0'
+}
+PrismaClientKnownRequestError: 
+Invalid `prisma.user.findUnique()` invocation:
+
+
+Inconsistent column data: Malformed ObjectID: invalid character 'm' was found at index 0 in the provided hex string: "me".
+    at ei.handleRequestError (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:7268)
+    at ei.handleAndLogRequestError (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:6593)
+    at ei.request (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:121:6300)
+    at async a (C:\Projetos\fullstack-project\node_modules\.pnpm\@prisma+client@6.19.0_prism_0ade0c2032e7f19289902b884120cfab\node_modules\@prisma\client\runtime\library.js:130:9551)
+    at async file:///C:/Projetos/fullstack-project/server.js:120:16 {
+  code: 'P2023',
+  meta: {
+    modelName: 'User',
+    message: `Malformed ObjectID: invalid character 'm' was found at index 0 in the provided hex string: "me".`
+  },
+  clientVersion: '6.19.0'
+}
