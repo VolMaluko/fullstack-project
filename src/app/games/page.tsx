@@ -65,28 +65,35 @@ export default function GamesPage() {
 	};
 
 	useEffect(() => {
-		let isMounted = true; // Track if the component is mounted
-
-		async function load() {
+		let isMounted = true;
+		const fetchApps = async () => {
 			setLoading(true);
 			try {
-				const res = await fetch("http://localhost:3001/steam/apps");
-				const json = await res.json();
+				const res = await fetch("http://localhost:3001/steam/apps", {
+					headers: STEAM_HEADERS,
+				});
+				if (!res.ok) {
+					console.error("Failed to fetch Steam app list");
+					setLoading(false);
+					return;
+				}
 
-				let list = json?.applist?.apps || [];
-				list = dedupeApps(list);
+				const data = await res.json(); // Data agora é o array de apps, certo?
 
 				if (isMounted) {
-					setApps(list); // Set state only if component is still mounted
+					const deduped = dedupeApps(data); // Opção A da resposta anterior
+
+					console.log("Dados recebidos e dedupados:", deduped.length, "apps"); // <-- VERIFIQUE ESTE LOG
+
+					setApps(deduped);
+					setLoading(false);
 				}
 			} catch (err) {
-				console.error("Failed to fetch apps list", err);
-			} finally {
-				if (isMounted) setLoading(false); // Stop loading if the component is still mounted
+				console.error("Error fetching Steam app list", err);
+				setLoading(false);
 			}
-		}
-
-		load();
+		};
+		fetchApps();
 
 		return () => {
 			isMounted = false; // Cleanup function to set the flag to false when unmounting
@@ -114,7 +121,7 @@ export default function GamesPage() {
 
 		// Limit to 30 if not showing all
 		if (!showAll) {
-			result = result.slice(0, 30);
+			result = result.slice(0, 50000);
 		}
 
 		return result;

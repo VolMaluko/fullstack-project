@@ -1,5 +1,6 @@
 /** @format */
 
+import axios from "axios";
 import express from "express";
 import http from "http";
 import cors from "cors";
@@ -65,62 +66,6 @@ const storage = multer.diskStorage({
 	},
 });
 const upload = multer({ storage });
-
-// Admin endpoint: upload JSON file to import Steam apps into DB
-const adminUpload = multer({ dest: "data/" });
-app.post(
-	"/admin/import-apps-json",
-	adminUpload.single("file"),
-	async (req, res) => {
-		try {
-			if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-			const raw = fs.readFileSync(req.file.path, "utf-8");
-			let list = [];
-			try {
-				list = JSON.parse(raw);
-			} catch (e) {
-				return res.status(400).json({ error: "Invalid JSON" });
-			}
-			if (!Array.isArray(list))
-				return res.status(400).json({ error: "JSON must be an array" });
-			// Each item: { appid: number, name: string }
-			const toInsert = list
-				.filter(
-					(a) => a && typeof a.appid === "number" && typeof a.name === "string"
-				)
-				.map((a) => ({ steamAppId: a.appid, name: a.name }));
-			if (toInsert.length === 0) return res.json({ inserted: 0 });
-			// Insert in chunks
-			const chunkSize = 2000;
-			let inserted = 0;
-			for (let i = 0; i < toInsert.length; i += chunkSize) {
-				const chunk = toInsert.slice(i, i + chunkSize);
-				try {
-					const result = await prisma.game.createMany({
-						data: chunk,
-						skipDuplicates: true,
-					});
-					if (result && result.count) inserted += result.count;
-				} catch (e) {
-					console.warn("Error inserting chunk", e && e.message ? e.message : e);
-				}
-			}
-			res.json({ inserted });
-		} catch (err) {
-			console.error(err);
-			res.status(500).json({ error: "Internal server error" });
-		} finally {
-			// Clean up uploaded file
-			if (req.file && req.file.path) {
-				try {
-					fs.unlinkSync(req.file.path);
-				} catch (e) {}
-			}
-		}
-	}
-);
-
-/** @format */
 
 // --- Simple persistent storage for per-user game lists (played / wishlist)
 const LISTS_DIR = "data";
@@ -440,124 +385,52 @@ app.post(
 );
 app.get("/steam/apps", async (req, res) => {
 	try {
-		const maxResults = 30; // Limite de jogos por requisição
-		let lastAppid = 0; // O primeiro appid para começar a buscar
-		let allApps = []; // Array para armazenar os jogos encontrados
-		let hasMoreApps = true; // Flag para verificar se existem mais jogos para carregar
-		let totalLoaded = 0; // Número total de jogos carregados até agora
+		const url = `https://api.steampowered.com/IStoreService/GetAppList/v1/?key=${STEAM_KEY}&maxresults=50000&last_appid=0`;
 
-		// Verifica se existem jogos armazenados no banco e retorna esses jogos
-		const storedApps = await prisma.game.findMany();
-		if (storedApps.length > 0) {
-			allApps = storedApps;
-			console.log(
-				`Retornando jogos armazenados do banco de dados (${storedApps.length} jogos encontrados)`
-			);
-			return res.json({ applist: { apps: allApps } });
-		}
+		const response = await axios.get(url);
 
-		// Lógica de requisições paginadas para buscar jogos da Steam
-		while (hasMoreApps) {
-			const response = await fetch(
-				`https://api.steampowered.com/IStoreService/GetAppList/v1/?key=${STEAM_KEY}&max_results=${maxResults}&last_appid=${lastAppid}&include_games=1`
-			);
+		const data = response.data;
 
-			if (!response.ok) {
-				throw new Error("Falha ao obter dados da Steam API");
-			}
-
-			const data = await response.json();
-
-			if (data && data.response && Array.isArray(data.response.apps)) {
-				const apps = data.response.apps.map((app) => ({
-					appid: app.appid,
-					name: app.name,
-				}));
-
-				// Acumula os jogos
-				allApps = [...allApps, ...apps];
-
-				// Verifica se há mais jogos para carregar
-				hasMoreApps = data.response.have_more_results;
-
-				if (hasMoreApps) {
-					lastAppid = data.response.last_appid; // Atualiza o last_appid para próxima requisição
-				}
-
-				// Armazenando os jogos no banco (evitando duplicação)
-				for (const app of apps) {
-					await prisma.game.upsert({
-						where: { appid: app.appid }, // Verifica se o app já existe
-						update: {}, // Não faz atualização
-						create: {
-							// Se não existir, cria um novo registro
-							appid: app.appid,
-							name: app.name,
-						},
-					});
-				}
-
-				totalLoaded += apps.length;
-
-				// Se atingiu a quantidade desejada, podemos parar (opcional, caso queira limitar a carga)
-				if (totalLoaded >= 100) {
-					// Limite máximo de 100 jogos para carregar
-					break;
-				}
-			} else {
-				console.error("Resposta da API não contém a estrutura esperada:", data);
-				throw new Error("Estrutura de dados inesperada da Steam API");
-			}
-		}
-
-		// Retorna os jogos acumulados
-		console.log(`Carregados ${totalLoaded} jogos`);
-		res.json({ applist: { apps: allApps } });
+		res.json(data.response.apps);
 	} catch (err) {
-		console.error("Erro ao buscar jogos: ", err);
-		res.status(500).send("Erro ao buscar jogos");
+		console.error("Erro ao buscar lista de apps (Axios): ", err.message);
+
+		res.status(500).send("Erro ao buscar lista de apps: " + err.message);
 	}
 });
-app.get("/steam/details/:appid", async (req, res) => {
+
+app.get("/steam/appdetails/:appid", async (req, res) => {
+	const { appid } = req.params;
+
+	if (!appid || isNaN(Number(appid))) {
+		return res.status(400).send("AppID inválido ou ausente.");
+	}
+
+	const url = `https://store.steampowered.com/api/appdetails?appids=${appid}&cc=br&l=pt`;
+
 	try {
-		const appid = parseInt(req.params.appid, 10);
-
-		// Verificar se o appid é válido
-		if (!appid) {
-			return res.status(400).send("Invalid appid");
-		}
-
-		// Buscar o jogo no banco de dados
-		const game = await prisma.game.findUnique({
-			where: { appid: appid },
+		// Passe os headers CORRETAMENTE para a requisição fetch
+		const response = await fetch(url, {
+			headers: STEAM_HEADERS, // Use a constante que simula um navegador
 		});
 
-		// Verificar se o jogo existe no banco
-		if (!game) {
-			return res.status(404).send("Jogo não encontrado");
-		}
-
-		// Continuar com a busca dos detalhes do jogo
-		const response = await fetch(
-			`https://api.steampowered.com/IStoreService/GetAppDetails/v1/?key=${STEAM_KEY}&appid=${appid}`
-		);
-
 		if (!response.ok) {
-			throw new Error("Falha ao obter detalhes do jogo");
+			// O erro 403 Forbidden será capturado aqui
+			throw new Error(`Falha ao obter detalhes do app: ${response.statusText}`);
 		}
 
 		const data = await response.json();
-		const gameDetails = data.response?.game_details;
 
-		// Verificar se os detalhes do jogo estão presentes
-		if (!gameDetails) {
-			throw new Error("Detalhes do jogo não encontrados");
+		const appDetails = data[appid]?.data;
+
+		if (!appDetails || !data[appid]?.success) {
+			return res.status(404).send("Detalhes do jogo não encontrados na Steam.");
 		}
 
-		res.json(gameDetails);
+		res.json(appDetails);
 	} catch (err) {
-		console.error("Erro ao buscar detalhes: ", err);
-		res.status(500).send("Erro ao buscar detalhes do jogo");
+		console.error("Erro ao buscar detalhes do app:", err.message);
+		res.status(500).send("Erro interno ao buscar detalhes do jogo na Steam.");
 	}
 });
 
@@ -596,11 +469,13 @@ app.post("/games/fetch", async (req, res) => {
 			const resp = await fetch(
 				`https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=en`
 			);
+			const libraryHeroUrl = `https://steamcdn-a.akamaihd.net/steam/apps/${steamAppId}/library_hero.jpg`;
 			const json = await resp.json();
 			const data = json[steamAppId] && json[steamAppId].data;
 			if (!data) return res.status(404).json({ error: "Steam app not found" });
 			const name = data.name || `App ${steamAppId}`;
 			const image =
+				libraryHeroUrl ||
 				data.header_image ||
 				(data.screenshots &&
 					data.screenshots[0] &&
@@ -683,155 +558,6 @@ app.get("/games/steam/:steamAppId", async (req, res) => {
 		res.status(500).json({ error: "Internal server error" });
 	}
 });
-
-app.get("/steam/importar", async (req, res) => {
-	try {
-		const maxResults = 30; // Número de jogos por requisição
-		let lastAppid = 0; // O primeiro appid para começar
-		let hasMoreApps = true;
-
-		while (hasMoreApps) {
-			const response = await fetch(
-				`https://api.steampowered.com/IStoreService/GetAppList/v1/?key=${STEAM_KEY}&max_results=${maxResults}&last_appid=${lastAppid}&include_games=1`
-			);
-
-			if (!response.ok) {
-				throw new Error("Falha ao obter dados da Steam API");
-			}
-
-			const data = await response.json();
-
-			if (data && data.response && Array.isArray(data.response.apps)) {
-				for (const app of data.response.apps) {
-					const { appid, name } = app;
-
-					// Verificar se o jogo já existe no banco
-					const existingGame = await prisma.game.findUnique({
-						where: { steamAppId: appid },
-					});
-
-					if (!existingGame) {
-						// Buscar detalhes do jogo usando GetAppDetails
-						const gameDetailsResponse = await fetch(
-							`https://store.steampowered.com/api/appdetails?appids=${appid}&key=${STEAM_KEY}`
-						);
-						const gameDetailsData = await gameDetailsResponse.json();
-
-						const gameDetails = gameDetailsData[appid]?.data;
-						if (gameDetails) {
-							const description = gameDetails.short_description || "";
-							const image = gameDetails.header_image || "URL_DEFAULT_IMAGE"; // Defina uma imagem padrão
-							const genres = gameDetails.genres
-								? gameDetails.genres.map((genre) => genre.description)
-								: [];
-							const platforms = gameDetails.platforms
-								? Object.keys(gameDetails.platforms).filter(
-										(platform) => gameDetails.platforms[platform]
-								  )
-								: [];
-							const releaseDate = gameDetails.release_date?.date
-								? new Date(gameDetails.release_date.date)
-								: null;
-							const price = gameDetails.is_free
-								? 0
-								: gameDetails.price_overview?.final_formatted
-								? parseFloat(
-										gameDetails.price_overview.final_formatted.replace(
-											/[^\d.-]/g,
-											""
-										)
-								  )
-								: 0;
-
-							// Inserir o jogo no banco com todos os detalhes
-							await prisma.game.create({
-								data: {
-									steamAppId: appid,
-									name,
-									description,
-									image,
-									genres,
-									platforms,
-									releaseDate,
-									priceOverview: gameDetails.price_overview || {},
-									priceFinal: price,
-									isFree: gameDetails.is_free,
-								},
-							});
-
-							console.log(`Jogo adicionado: ${name}`);
-						}
-					}
-				}
-
-				// Atualize o `lastAppid` para a próxima requisição
-				hasMoreApps = data.response.have_more_results;
-				if (hasMoreApps) {
-					lastAppid = data.response.last_appid;
-				}
-			} else {
-				console.error("Resposta da API não contém a estrutura esperada:", data);
-				throw new Error("Estrutura de dados inesperada da Steam API");
-			}
-		}
-
-		res.status(200).send("Jogos importados com sucesso!");
-	} catch (err) {
-		console.error("Erro ao buscar jogos: ", err);
-		res.status(500).send("Erro ao importar jogos");
-	}
-});
-
-// Helper to ensure a game exists in DB for a steamAppId, creating it from Steam details if necessary
-async function ensureGameBySteamId(steamAppId) {
-	let game = await prisma.game.findUnique({
-		where: { steamAppId: Number(steamAppId) },
-	});
-	if (game) return game;
-	try {
-		const resp = await fetch(
-			`https://store.steampowered.com/api/appdetails?appids=${steamAppId}&l=en`
-		);
-		if (!resp.ok) return null;
-		const json = await resp.json();
-		const data = json && json[steamAppId] && json[steamAppId].data;
-		if (!data) return null;
-		const name = data.name || `App ${steamAppId}`;
-		const image =
-			data.header_image ||
-			(data.screenshots &&
-				data.screenshots[0] &&
-				data.screenshots[0].path_full) ||
-			null;
-		const required_age = parseInt(data.required_age || "0", 10) || 0;
-		const ageRestricted =
-			required_age >= 18 ||
-			(data.categories &&
-				data.categories.some((c) => /mature|adult/i.test(c.description)));
-		const platforms = data.platforms || null;
-		const priceOverview = data.price_overview || null;
-		const isFree = priceOverview ? Number(priceOverview.final) === 0 : false;
-
-		game = await prisma.game.create({
-			data: {
-				steamAppId: Number(steamAppId),
-				name,
-				image,
-				ageRestricted,
-				platforms,
-				priceOverview,
-				isFree,
-			},
-		});
-		return game;
-	} catch (e) {
-		console.warn(
-			"Failed to ensure game by steam id",
-			e && e.message ? e.message : e
-		);
-		return null;
-	}
-}
 
 // Comments by Steam AppID (maps to internal game id)
 app.get("/games/steam/:steamAppId/comments", async (req, res) => {
